@@ -1,2 +1,2 @@
 # SguanSimulink_Library
-Simulink project simulation files for motor control development, which can be used for pre-emptive problem detection and PID parameter tuning in actual engineering setups... are created from a self-developed field-oriented control simulation library.
+用于电机控制开发的 Simulink 项目仿真文件，可用于实际工程环境中的预先问题检测和 PID 参数调节……这些文件是从自主开发的磁场定向控制仿真库创建的。
