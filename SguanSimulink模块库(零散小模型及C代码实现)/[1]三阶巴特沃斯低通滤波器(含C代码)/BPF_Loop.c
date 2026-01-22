@@ -2,8 +2,8 @@
  * @Author: 星必尘Sguan
  * @Date: 2026-01-21 19:54:51
  * @LastEditors: 星必尘Sguan|3464647102@qq.com
- * @LastEditTime: 2026-01-22 12:20:32
- * @FilePath: \py_Pride-and-Prejudice\BPF_Loop.c
+ * @LastEditTime: 2026-01-22 12:43:19
+ * @FilePath: \SguanSimulink库\BPF_Loop.c
  * @Description: 实现三阶巴特沃斯低通滤波器
  * 
  * Copyright (c) 2026 by $JUST, All Rights Reserved. 
@@ -14,8 +14,8 @@ BPF_STRUCT bpf;
 
 /* 巴特沃斯参数初始化，主函数调用 */
 void BPF_Init(void){
-    bpf.Wc = 10;    // 单位为"rad/s"
-    bpf.T = 0.001;  // 单位为"s秒"
+    bpf.Wc = 10;    // 单位为“rad/s”
+    bpf.T = 0.001;  // 单位为“s秒”
     double temp1 = bpf.T*bpf.Wc;
     double temp2 = bpf.T*bpf.T*bpf.Wc*bpf.Wc;
     double temp3 = bpf.T*bpf.T*bpf.T*bpf.Wc*bpf.Wc*bpf.Wc;
