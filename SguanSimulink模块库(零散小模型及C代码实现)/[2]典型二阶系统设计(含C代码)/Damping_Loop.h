@@ -9,8 +9,8 @@ typedef struct{
     double Wn;      // (参数设计)Wn无阻尼自然频率
     double T;       // (参数设计)T周期
 
-    float num[4];   // (中间量)传递函数分子系数
-    float den[4];   // (中间量)传递函数分母系数
+    float num[3];   // (中间量)传递函数分子系数
+    float den[3];   // (中间量)传递函数分母系数
 }DAMPING_STRUCT;
 
 void Damping_Init(void);

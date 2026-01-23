@@ -21,7 +21,7 @@ void Damping_Init(void){
     double temp1 = osc.T*osc.Wn;
     double temp2 = osc.T*osc.T*osc.Wn*osc.Wn;
     osc.num[0] = (float)temp2;
-    osc.num[1] = (float)2*temp2;
+    osc.num[1] = (float)(2*temp2);
     osc.num[2] = (float)temp2;
     osc.den[0] = (float)(temp2+4*temp0+4);
     osc.den[1] = (float)(-8+2*temp2);
