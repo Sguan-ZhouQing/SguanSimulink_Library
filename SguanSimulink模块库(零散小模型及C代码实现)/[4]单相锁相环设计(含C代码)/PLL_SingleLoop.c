@@ -2,7 +2,7 @@
  * @Author: 星必尘Sguan
  * @Date: 2026-01-24 17:13:04
  * @LastEditors: 星必尘Sguan|3464647102@qq.com
- * @LastEditTime: 2026-01-24 23:31:09
+ * @LastEditTime: 2026-01-25 00:10:37
  * @FilePath: \SguanSimulink库\PLL_SingleLoop.c
  * @Description: 实现PLL单相锁相环(输出We和Rad)
  * 
@@ -12,7 +12,7 @@
 
 PLL_SINGLE_STRUCT alone;
 
-/* 二阶典型环节参数初始化，主函数调用 */
+/* 单相锁相环参数初始化，主函数调用 */
 void PLL_SingleInit(void){
     alone.Wc = 1;      // 单位为“rad/s”
     alone.T = 0.001;   // 单位为“s秒”
