@@ -10,7 +10,7 @@
  * Copyright (c) 2026 by $星必尘Sguan, All Rights Reserved. 
  */
 #include "SVPWM.h"
-
+#include <stdbool.h>
 
 // 快速sine和cosine求解的局部函数
 static double f1(double x) {
@@ -45,13 +45,7 @@ static void fast_sin_cos(double x, double *sin_x, double *cos_x) {
 
 // 重写fabsf函数
 static double Sguan_fabsf(double x) {
-  union {
-      double f;
-      unsigned int i;
-  } u;
-  u.f = x;
-  u.i &= 0x7FFFFFFF; // 1次位与操作
-  return u.f;
+  return x < 0.0 ? -x : x;
 }
 
 // 电机SVPWM空间矢量调制函数
