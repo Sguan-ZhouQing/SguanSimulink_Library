@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVPWM · 方波 + 矢量六边形 (单电阻采样评估)</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            background: #f2f2f2;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1300px;
+            width: 100%;
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.05);
+            padding: 24px 28px 32px;
+        }
+        h1 {
+            font-weight: 300;
+            font-size: 24px;
+            color: #222;
+            margin: 0 0 4px 0;
+            border-bottom: 1px solid #e8e8e8;
+            padding-bottom: 10px;
+        }
+        .sub {
+            color: #7a7a7a;
+            font-size: 14px;
+            margin-top: -4px;
+            margin-bottom: 20px;
+        }
+        .control-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px 36px;
+            background: #f8f8f8;
+            padding: 16px 22px;
+            border-radius: 14px;
+            border: 1px solid #eaeaea;
+            margin-bottom: 20px;
+        }
+        .ctrl-item {
+            display: flex;
+            flex-direction: column;
+            flex: 1 0 110px;
+        }
+        .ctrl-item label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #3a3a3a;
+            margin-bottom: 3px;
+        }
+        .ctrl-item .value-display {
+            font-size: 15px;
+            font-weight: 500;
+            color: #1a1a1a;
+            background: #fff;
+            padding: 2px 12px;
+            border-radius: 30px;
+            border: 1px solid #ddd;
+            display: inline-block;
+            align-self: flex-start;
+            margin-top: 2px;
+            min-width: 64px;
+            text-align: center;
+        }
+        input[type="range"] {
+            width: 100%;
+            min-width: 100px;
+            accent-color: #555;
+            background: #d5d5d5;
+            height: 4px;
+            border-radius: 4px;
+            outline: none;
+            margin: 4px 0 2px 0;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #333;
+            cursor: pointer;
+            border: 2px solid #fafafa;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+        }
+        .main-layout {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .left-panel {
+            flex: 2;
+            min-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .right-panel {
+            flex: 1;
+            min-width: 300px;
+            background: #fbfbfb;
+            border-radius: 16px;
+            border: 1px solid #e4e4e4;
+            padding: 14px 14px 8px 14px;
+            display: flex;
+            flex-direction: column;
+        }
+        .right-panel h3 {
+            font-weight: 400;
+            font-size: 15px;
+            margin: 0 0 4px 8px;
+            color: #3a3a3a;
+        }
+        .canvas-box {
+            background: #fbfbfb;
+            border-radius: 14px;
+            border: 1px solid #e4e4e4;
+            padding: 10px 12px 6px 12px;
+        }
+        .canvas-box h3 {
+            font-weight: 400;
+            font-size: 15px;
+            margin: 0 0 4px 8px;
+            color: #3a3a3a;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            background: #ffffff;
+            border-radius: 10px;
+            box-shadow: inset 0 0 0 1px #efefef;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin: 6px 0 2px 8px;
+            font-size: 13px;
+            color: #444;
+        }
+        .legend span::before {
+            content: "—";
+            margin-right: 6px;
+            font-weight: 700;
+        }
+        .legend .u::before { content: "▬"; color: #cc0000; }
+        .legend .v::before { content: "▬"; color: #0055cc; }
+        .legend .w::before { content: "▬"; color: #888888; }
+        .legend .carrier::before { content: "◌"; color: #c0c0c0; font-weight: 300; }
+        .footer-note {
+            margin-top: 18px;
+            color: #9a9a9a;
+            font-size: 13px;
+            text-align: right;
+            border-top: 1px solid #ececec;
+            padding-top: 12px;
+        }
+        .vector-legend {
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+            margin: 6px 0 0 8px;
+            font-size: 13px;
+            color: #444;
+        }
+        .vector-legend .v_arrow::before { content: "→"; color: #cc0000; font-weight: 700; margin-right: 4px; }
+        .vector-legend .v_theta::before { content: "◌"; color: #888; font-weight: 300; margin-right: 4px; }
+        .vector-legend .ccw::before { content: "↺"; color: #555; font-weight: 700; margin-right: 4px; }
+
+        /* duty_set 和安全裕量区域 */
+        .duty-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 8px 8px 4px 8px;
+            flex-wrap: wrap;
+        }
+        .duty-row label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #3a3a3a;
+            white-space: nowrap;
+        }
+        .duty-row input[type="number"] {
+            width: 72px;
+            padding: 4px 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #1a1a1a;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            text-align: center;
+            outline: none;
+        }
+        .duty-row input[type="number"]:focus {
+            border-color: #888;
+            box-shadow: 0 0 0 2px rgba(0,0,0,0.06);
+        }
+        .safety-display {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1a1a1a;
+            background: #fff;
+            padding: 4px 14px;
+            border-radius: 30px;
+            border: 1px solid #ddd;
+            white-space: nowrap;
+        }
+        .safety-display .safety-val {
+            font-weight: 700;
+            color: #cc0000;
+        }
+        .region-legend {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin: 2px 0 2px 8px;
+            font-size: 12px;
+            color: #666;
+        }
+        .region-legend .white-region::before { content: "□"; color: #fff; background:#fff; border:1px solid #ccc; margin-right:4px; }
+        .region-legend .gray-region::before { content: "■"; color: #d0d0d0; margin-right:4px; }
+
+        @media (max-width: 900px) {
+            .main-layout { flex-direction: column; }
+            .left-panel { min-width: unset; }
+            .right-panel { min-width: unset; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>⚙ Ud / Uq → SVPWM · 方波 + 矢量六边形（单电阻采样评估）</h1>
+    <div class="sub">Ud, Uq 标幺 (0~1)  ·  电角度 θ (0~2π) · 灰白区域表示单电阻采样可行性</div>
+
+    <div class="control-panel">
+        <div class="ctrl-item">
+            <label>Ud (d轴电压)</label>
+            <input type="range" id="sliderUd" min="0" max="1" step="0.001" value="0.0">
+            <span class="value-display" id="valUd">0.000</span>
+        </div>
+        <div class="ctrl-item">
+            <label>Uq (q轴电压)</label>
+            <input type="range" id="sliderUq" min="0" max="1" step="0.001" value="0.6">
+            <span class="value-display" id="valUq">0.600</span>
+        </div>
+        <div class="ctrl-item">
+            <label>电角度 θ (rad)</label>
+            <input type="range" id="sliderTheta" min="0" max="6.2832" step="0.001" value="0.0">
+            <span class="value-display" id="valTheta">0.000</span>
+        </div>
+    </div>
+
+    <div class="main-layout">
+        <div class="left-panel">
+            <div class="canvas-box">
+                <h3>🔺 高侧三相 (U_H, V_H, W_H)</h3>
+                <canvas id="canvasHigh" width="600" height="220"></canvas>
+                <div class="legend">
+                    <span class="u">U_H (红)</span>
+                    <span class="v">V_H (蓝)</span>
+                    <span class="w">W_H (灰)</span>
+                    <span class="carrier">三角波</span>
+                </div>
+            </div>
+            <div class="canvas-box">
+                <h3>🔻 互补低侧 (U_L, V_L, W_L) · 镜像互补</h3>
+                <canvas id="canvasLow" width="600" height="220"></canvas>
+                <div class="legend">
+                    <span class="u">U_L (红)</span>
+                    <span class="v">V_L (蓝)</span>
+                    <span class="w">W_L (灰)</span>
+                    <span class="carrier">三角波</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <h3>🧭 SVPWM 矢量六边形</h3>
+            <canvas id="canvasVector" width="400" height="400"></canvas>
+            <div class="vector-legend">
+                <span class="v_arrow">合成矢量 (红)</span>
+                <span class="v_theta">电角度 θ (灰虚线)</span>
+                <span class="ccw">逆时针旋转</span>
+                <span style="color:#888;">内切圆 / 六边形</span>
+            </div>
+            <div class="duty-row">
+                <label for="dutySet">duty_set (0~1)</label>
+                <input type="number" id="dutySet" min="0" max="1" step="0.00001" value="0.10000">
+                <span class="safety-display">安全裕量：<span class="safety-val" id="valSafety">--.-%</span></span>
+            </div>
+            <div class="region-legend">
+                <span class="white-region">白色 = 采样可行</span>
+                <span class="gray-region">灰色 = 采样不可行</span>
+            </div>
+        </div>
+    </div>
+    <div class="footer-note">灰色区域：Δ1 &lt; duty_set 或 Δ2 &lt; duty_set · 安全裕量 = 以当前矢量长度为半径的圆上白色占比</div>
+</div>
+
+<script>
+    (function() {
+        // ==================== DOM 元素 ====================
+        const slUd = document.getElementById('sliderUd');
+        const slUq = document.getElementById('sliderUq');
+        const slTheta = document.getElementById('sliderTheta');
+        const valUd = document.getElementById('valUd');
+        const valUq = document.getElementById('valUq');
+        const valTheta = document.getElementById('valTheta');
+        const slDutySet = document.getElementById('dutySet');
+        const valSafety = document.getElementById('valSafety');
+        const cHigh = document.getElementById('canvasHigh');
+        const cLow = document.getElementById('canvasLow');
+        const cVec = document.getElementById('canvasVector');
+        const ctxH = cHigh.getContext('2d');
+        const ctxL = cLow.getContext('2d');
+        const ctxVec = cVec.getContext('2d');
+
+        // ==================== 常量 ====================
+        const PI = Math.PI;
+        const TWO_PI = 2 * PI;
+        const SQRT3 = 1.7320508075688772;
+        const SQRT3_2 = 0.8660254037844386;
+
+        // ==================== 六边形灰白区域缓存 ====================
+        let cachedHexRegion = null;   // 离屏 Canvas，存储灰白区域
+        let cachedDutySet = -1;        // 上次生成缓存时对应的 duty_set
+
+        // ==================== SVPWM 七段式 ====================
+        function svpwm(u_alpha, u_beta) {
+            const ts = 1.0;
+            const u1 = u_beta;
+            const u2 = -SQRT3_2 * u_alpha - 0.5 * u_beta;
+            const u3 = SQRT3_2 * u_alpha - 0.5 * u_beta;
+
+            let sector = 0;
+            if (u1 > 0.0) sector |= 1;
+            if (u2 > 0.0) sector |= 2;
+            if (u3 > 0.0) sector |= 4;
+
+            let t_a, t_b, t_c;
+            let k_svpwm;
+
+            if (sector === 5) {
+                let t4 = u3, t6 = u1;
+                let sum = t4 + t6;
+                if (sum > ts) { k_svpwm = ts / sum; t4 *= k_svpwm; t6 *= k_svpwm; }
+                let t7 = (ts - t4 - t6) / 2.0;
+                t_a = t4 + t6 + t7;
+                t_b = t6 + t7;
+                t_c = t7;
+            } else if (sector === 1) {
+                let t2 = -u3, t6 = -u2;
+                let sum = t2 + t6;
+                if (sum > ts) { k_svpwm = ts / sum; t2 *= k_svpwm; t6 *= k_svpwm; }
+                let t7 = (ts - t2 - t6) / 2.0;
+                t_a = t6 + t7;
+                t_b = t2 + t6 + t7;
+                t_c = t7;
+            } else if (sector === 3) {
+                let t2 = u1, t3 = u2;
+                let sum = t2 + t3;
+                if (sum > ts) { k_svpwm = ts / sum; t2 *= k_svpwm; t3 *= k_svpwm; }
+                let t7 = (ts - t2 - t3) / 2.0;
+                t_a = t7;
+                t_b = t2 + t3 + t7;
+                t_c = t3 + t7;
+            } else if (sector === 2) {
+                let t1 = -u1, t3 = -u3;
+                let sum = t1 + t3;
+                if (sum > ts) { k_svpwm = ts / sum; t1 *= k_svpwm; t3 *= k_svpwm; }
+                let t7 = (ts - t1 - t3) / 2.0;
+                t_a = t7;
+                t_b = t3 + t7;
+                t_c = t1 + t3 + t7;
+            } else if (sector === 6) {
+                let t1 = u2, t5 = u3;
+                let sum = t1 + t5;
+                if (sum > ts) { k_svpwm = ts / sum; t1 *= k_svpwm; t5 *= k_svpwm; }
+                let t7 = (ts - t1 - t5) / 2.0;
+                t_a = t5 + t7;
+                t_b = t7;
+                t_c = t1 + t5 + t7;
+            } else if (sector === 4) {
+                let t4 = -u2, t5 = -u1;
+                let sum = t4 + t5;
+                if (sum > ts) { k_svpwm = ts / sum; t4 *= k_svpwm; t5 *= k_svpwm; }
+                let t7 = (ts - t4 - t5) / 2.0;
+                t_a = t4 + t5 + t7;
+                t_b = t7;
+                t_c = t5 + t7;
+            } else {
+                t_a = 0.5; t_b = 0.5; t_c = 0.5;
+            }
+
+            t_a = Math.min(1, Math.max(0, t_a));
+            t_b = Math.min(1, Math.max(0, t_b));
+            t_c = Math.min(1, Math.max(0, t_c));
+
+            return { du: t_a, dv: t_b, dw: t_c };
+        }
+
+        // ==================== 六边形灰白区域生成（精确逐像素计算） ====================
+        // 对六边形内每个采样点做 SVPWM，判断 Δ1, Δ2 是否均 ≥ duty_set
+        // 灰色 = 不可采样（Δ1 < duty_set 或 Δ2 < duty_set）
+        // 白色区域不绘制（留透明，让底层白色填充透出）
+        function generateHexRegion(canvasW, canvasH, cx, cy, R, duty_set) {
+            // 创建离屏 Canvas
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = canvasW;
+            offCanvas.height = canvasH;
+            const offCtx = offCanvas.getContext('2d');
+
+            const imageData = offCtx.createImageData(canvasW, canvasH);
+            const data = imageData.data;
+
+            const step = 2;                        // 网格采样步长
+            const innerR = R * SQRT3_2;            // 内切圆半径（映射到标幺值 1.0）
+            const hexHalfH = R * SQRT3_2;          // 六边形半高（像素）
+
+            for (let sy = 0; sy < canvasH; sy += step) {
+                const dy = cy - sy;                // 屏幕 Y 到数学 Y（向上为正）
+                const absDy = Math.abs(dy);
+
+                // 超出六边形垂直范围则跳过
+                if (absDy > hexHalfH) continue;
+
+                // 该 Y 坐标处六边形的最大 X 偏移
+                const maxDx = R - absDy / SQRT3;
+
+                for (let sx = 0; sx < canvasW; sx += step) {
+                    const dx = sx - cx;
+                    const absDx = Math.abs(dx);
+
+                    // 超出六边形水平范围则跳过
+                    if (absDx > maxDx) continue;
+
+                    // 像素坐标 → 标幺值（以内切圆半径为基准，|u|=1 对应内切圆）
+                    const u_alpha = dx / innerR;
+                    const u_beta  = dy / innerR;
+
+                    // SVPWM 计算
+                    const { du, dv, dw } = svpwm(u_alpha, u_beta);
+
+                    // 计算 Δ1 和 Δ2
+                    const d_max = Math.max(du, dv, dw);
+                    const d_min = Math.min(du, dv, dw);
+                    const d_mid = du + dv + dw - d_max - d_min;
+                    const delta1 = d_max - d_mid;
+                    const delta2 = d_mid - d_min;
+
+                    // 判断：灰色 = 不可采样
+                    const isWhite = (delta1 >= duty_set && delta2 >= duty_set);
+                    if (isWhite) continue; // 白色区域不绘制
+
+                    // 填充 step×step 灰色像素块
+                    const grayR = 208, grayG = 208, grayB = 208, grayA = 255;
+                    const blockEndY = Math.min(sy + step, canvasH);
+                    const blockEndX = Math.min(sx + step, canvasW);
+
+                    for (let py = sy; py < blockEndY; py++) {
+                        // 对该像素行再次检查六边形边界（处理块边界裁剪）
+                        const pdy = cy - py;
+                        const pAbsDy = Math.abs(pdy);
+                        if (pAbsDy > hexHalfH) continue;
+                        const pMaxDx = R - pAbsDy / SQRT3;
+
+                        for (let px = sx; px < blockEndX; px++) {
+                            const pdx = px - cx;
+                            if (Math.abs(pdx) > pMaxDx) continue;
+
+                            const idx = (py * canvasW + px) * 4;
+                            data[idx]     = grayR;
+                            data[idx + 1] = grayG;
+                            data[idx + 2] = grayB;
+                            data[idx + 3] = grayA;
+                        }
+                    }
+                }
+            }
+
+            offCtx.putImageData(imageData, 0, 0);
+            return offCanvas;
+        }
+
+        // ==================== 安全裕量计算 ====================
+        // 以当前矢量长度 mag 为半径，绕原点 360 度均匀采样
+        // 安全裕量 = (白色区域采样点数 / 总采样点数) × 100%
+        function calcSafetyMargin(mag, duty_set) {
+            const samples = 360;
+            let whiteCount = 0;
+
+            // 若 mag 极小（趋近原点），所有采样点重合，直接判断原点
+            if (mag < 1e-6) {
+                const { du, dv, dw } = svpwm(0, 0);
+                const d_max = Math.max(du, dv, dw);
+                const d_min = Math.min(du, dv, dw);
+                const d_mid = du + dv + dw - d_max - d_min;
+                const delta1 = d_max - d_mid;
+                const delta2 = d_mid - d_min;
+                return (delta1 >= duty_set && delta2 >= duty_set) ? 100.0 : 0.0;
+            }
+
+            for (let i = 0; i < samples; i++) {
+                const angle = (i / samples) * TWO_PI;
+                const u_alpha = mag * Math.cos(angle);
+                const u_beta  = mag * Math.sin(angle);
+
+                const { du, dv, dw } = svpwm(u_alpha, u_beta);
+                const d_max = Math.max(du, dv, dw);
+                const d_min = Math.min(du, dv, dw);
+                const d_mid = du + dv + dw - d_max - d_min;
+                const delta1 = d_max - d_mid;
+                const delta2 = d_mid - d_min;
+
+                if (delta1 >= duty_set && delta2 >= duty_set) {
+                    whiteCount++;
+                }
+            }
+
+            return (whiteCount / samples) * 100.0;
+        }
+
+        // ==================== 绘制高侧 PWM ====================
+        function drawHighSide(canvas, ctx, du, dv, dw) {
+            const w = canvas.width, h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+            const padL = 44, padR = 30, padT = 14, padB = 30;
+            const plotW = w - padL - padR;
+            const plotH = h - padT - padB;
+            const midY = padT + plotH / 2;
+            const amp = plotH / 2 * 0.78;
+            const steps = 500;
+            const triBottom = midY + amp * 0.06;
+            const lowOffset = 6;
+            const lowY = triBottom + lowOffset;
+
+            ctx.beginPath();
+            ctx.strokeStyle = "#d0d0d0";
+            ctx.lineWidth = 1.2;
+            ctx.setLineDash([4, 5]);
+            for (let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                const x = padL + t * plotW;
+                const tri = (t <= 0.5) ? 2 * t : 2 * (1 - t);
+                const y = midY - amp * tri + amp * 0.06;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = "#b8b8b8";
+            ctx.font = "10px sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText("三角波", padL + plotW - 58, padT + 12);
+
+            const duties = [du, dv, dw];
+            const colors = ["#cc0000", "#0055cc", "#888888"];
+            const labels = ["U", "V", "W"];
+            const lineWidths = [2.0, 2.0, 1.6];
+
+            for (let ph = 0; ph < 3; ph++) {
+                const d = duties[ph];
+                let t_start = (1 - d) / 2;
+                let t_end = (1 + d) / 2;
+                if (t_start < 0) t_start = 0;
+                if (t_end > 1) t_end = 1;
+                const x_start = padL + t_start * plotW;
+                const x_end = padL + t_end * plotW;
+                const triStart = (t_start <= 0.5) ? 2 * t_start : 2 * (1 - t_start);
+                const triEnd = (t_end <= 0.5) ? 2 * t_end : 2 * (1 - t_end);
+                const triLevel = (triStart + triEnd) / 2;
+                const highY = midY - amp * triLevel + amp * 0.06;
+
+                ctx.strokeStyle = colors[ph];
+                ctx.lineWidth = lineWidths[ph];
+                ctx.beginPath();
+                ctx.moveTo(x_start, highY);
+                ctx.lineTo(x_end, highY);
+                ctx.stroke();
+                if (t_start > 0.001) {
+                    ctx.beginPath();
+                    ctx.moveTo(padL, lowY);
+                    ctx.lineTo(x_start, lowY);
+                    ctx.stroke();
+                }
+                if (t_end < 0.999) {
+                    ctx.beginPath();
+                    ctx.moveTo(x_end, lowY);
+                    ctx.lineTo(padL + plotW, lowY);
+                    ctx.stroke();
+                }
+                ctx.beginPath();
+                ctx.moveTo(x_start, lowY);
+                ctx.lineTo(x_start, highY);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x_end, lowY);
+                ctx.lineTo(x_end, highY);
+                ctx.stroke();
+                ctx.fillStyle = colors[ph];
+                ctx.font = "bold 10px sans-serif";
+                ctx.textAlign = "left";
+                ctx.fillText(labels[ph], x_start + 3, highY - 3);
+            }
+
+            ctx.fillStyle = "#b0b0b0";
+            ctx.font = "9px sans-serif";
+            ctx.textAlign = "center";
+            for (let frac = 0; frac <= 1; frac += 0.25) {
+                const x = padL + frac * plotW;
+                ctx.fillText((frac*100).toFixed(0)+"%", x, padT + plotH + 18);
+            }
+            ctx.fillText("时间", padL + plotW/2, padT + plotH + 32);
+        }
+
+        // ==================== 绘制低侧 PWM ====================
+        function drawLowSide(canvas, ctx, du, dv, dw) {
+            const w = canvas.width, h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+            const padL = 44, padR = 30, padT = 14, padB = 30;
+            const plotW = w - padL - padR;
+            const plotH = h - padT - padB;
+            const midY = padT + plotH / 2;
+            const amp = plotH / 2 * 0.78;
+            const steps = 500;
+            const triBottom = midY + amp * 0.06;
+            const lowY = triBottom;
+
+            ctx.beginPath();
+            ctx.strokeStyle = "#d0d0d0";
+            ctx.lineWidth = 1.2;
+            ctx.setLineDash([4, 5]);
+            for (let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                const x = padL + t * plotW;
+                const tri = (t <= 0.5) ? 2 * t : 2 * (1 - t);
+                const y = midY - amp * tri + amp * 0.06;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = "#b8b8b8";
+            ctx.font = "10px sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText("三角波", padL + plotW - 58, padT + 12);
+
+            const duties = [du, dv, dw];
+            const colors = ["#cc0000", "#0055cc", "#888888"];
+            const labels = ["U", "V", "W"];
+            const lineWidths = [2.0, 2.0, 1.6];
+
+            for (let ph = 0; ph < 3; ph++) {
+                const d_high = duties[ph];
+                const t_high_start = (1 - d_high) / 2;
+                const t_high_end = (1 + d_high) / 2;
+                const x_start = padL + t_high_start * plotW;
+                const x_end = padL + t_high_end * plotW;
+                const triStart = (t_high_start <= 0.5) ? 2 * t_high_start : 2 * (1 - t_high_start);
+                const triEnd = (t_high_end <= 0.5) ? 2 * t_high_end : 2 * (1 - t_high_end);
+                const triLevel = (triStart + triEnd) / 2;
+                const highY = midY - amp * triLevel + amp * 0.06;
+
+                ctx.strokeStyle = colors[ph];
+                ctx.lineWidth = lineWidths[ph];
+                ctx.beginPath();
+                ctx.moveTo(x_start, lowY);
+                ctx.lineTo(x_end, lowY);
+                ctx.stroke();
+                if (t_high_start > 0.001) {
+                    ctx.beginPath();
+                    ctx.moveTo(padL, highY);
+                    ctx.lineTo(x_start, highY);
+                    ctx.stroke();
+                }
+                if (t_high_end < 0.999) {
+                    ctx.beginPath();
+                    ctx.moveTo(x_end, highY);
+                    ctx.lineTo(padL + plotW, highY);
+                    ctx.stroke();
+                }
+                ctx.beginPath();
+                ctx.moveTo(x_start, lowY);
+                ctx.lineTo(x_start, highY);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x_end, lowY);
+                ctx.lineTo(x_end, highY);
+                ctx.stroke();
+                ctx.fillStyle = colors[ph];
+                ctx.font = "bold 10px sans-serif";
+                ctx.textAlign = "left";
+                if (t_high_start > 0.03) {
+                    ctx.fillText(labels[ph], padL + 3, highY - 3);
+                } else {
+                    ctx.fillText(labels[ph], x_end + 3, highY - 3);
+                }
+            }
+
+            ctx.fillStyle = "#b0b0b0";
+            ctx.font = "9px sans-serif";
+            ctx.textAlign = "center";
+            for (let frac = 0; frac <= 1; frac += 0.25) {
+                const x = padL + frac * plotW;
+                ctx.fillText((frac*100).toFixed(0)+"%", x, padT + plotH + 18);
+            }
+            ctx.fillText("时间", padL + plotW/2, padT + plotH + 32);
+        }
+
+        // ==================== 矢量六边形绘制（含灰白区域） ====================
+        function drawVectorHexagon(canvas, ctx, u_alpha, u_beta, theta) {
+            const w = canvas.width, h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            const cx = w / 2, cy = h / 2;
+            const R = Math.min(w, h) * 0.42;
+
+            // ---- 第 1 层：白色背景 ----
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, w, h);
+
+            // ---- 第 2 层：灰白区域（从缓存离屏 Canvas 绘制） ----
+            if (cachedHexRegion) {
+                ctx.drawImage(cachedHexRegion, 0, 0);
+            }
+
+            // ---- 第 3 层：六边形边框 ----
+            const pts = [
+                { x: R,      y: 0 },
+                { x: R/2,    y: -R * SQRT3_2 },
+                { x: -R/2,   y: -R * SQRT3_2 },
+                { x: -R,     y: 0 },
+                { x: -R/2,   y: R * SQRT3_2 },
+                { x: R/2,    y: R * SQRT3_2 }
+            ];
+            const screenPts = pts.map(p => ({
+                x: cx + p.x,
+                y: cy - p.y
+            }));
+
+            ctx.strokeStyle = "#b0b0b0";
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            for (let i = 0; i < screenPts.length; i++) {
+                if (i === 0) ctx.moveTo(screenPts[i].x, screenPts[i].y);
+                else ctx.lineTo(screenPts[i].x, screenPts[i].y);
+            }
+            ctx.closePath();
+            ctx.stroke();
+
+            // ---- 第 4 层：内切圆 ----
+            ctx.strokeStyle = "#999999";
+            ctx.lineWidth = 1.4;
+            ctx.setLineDash([3, 4]);
+            ctx.beginPath();
+            ctx.arc(cx, cy, R * Math.cos(PI / 6), 0, TWO_PI);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // ---- 第 5 层：坐标轴 α / β ----
+            ctx.strokeStyle = "#d0d0d0";
+            ctx.lineWidth = 1.0;
+            ctx.beginPath();
+            ctx.moveTo(cx - R * 1.1, cy);
+            ctx.lineTo(cx + R * 1.1, cy);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - R * 1.1);
+            ctx.lineTo(cx, cy + R * 1.1);
+            ctx.stroke();
+            ctx.fillStyle = "#888";
+            ctx.font = "13px sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText("α", cx + R * 1.02, cy + 4);
+            ctx.textAlign = "center";
+            ctx.fillText("β", cx - 2, cy - R * 1.02);
+
+            // ---- 第 6 层：电角度 θ 虚线 ----
+            ctx.strokeStyle = "#888888";
+            ctx.lineWidth = 1.6;
+            ctx.setLineDash([5, 5]);
+            const endThetaX = cx + R * 0.92 * Math.cos(theta);
+            const endThetaY = cy - R * 0.92 * Math.sin(theta);
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(endThetaX, endThetaY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = "#888";
+            ctx.font = "12px sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText("θ", endThetaX + 6, endThetaY - 4);
+
+            // ---- 第 7 层：合成矢量 V（红色带箭头） ----
+            const mag = Math.sqrt(u_alpha * u_alpha + u_beta * u_beta);
+            const limitedMag = Math.min(mag, 1.0);
+            const vecAngle = Math.atan2(u_beta, u_alpha);
+            const vecLen = limitedMag * R * Math.cos(PI / 6);
+            const vx = cx + vecLen * Math.cos(vecAngle);
+            const vy = cy - vecLen * Math.sin(vecAngle);
+
+            ctx.strokeStyle = "#cc0000";
+            ctx.lineWidth = 2.8;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(vx, vy);
+            ctx.stroke();
+
+            const arrowSize = 10;
+            const angleOffset = 0.45;
+            const a1 = vecAngle + PI - angleOffset;
+            const a2 = vecAngle + PI + angleOffset;
+            ctx.fillStyle = "#cc0000";
+            ctx.beginPath();
+            ctx.moveTo(vx, vy);
+            ctx.lineTo(vx + arrowSize * Math.cos(a1), vy - arrowSize * Math.sin(a1));
+            ctx.lineTo(vx + arrowSize * Math.cos(a2), vy - arrowSize * Math.sin(a2));
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = "#cc0000";
+            ctx.font = "bold 13px sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText("V", vx + 8, vy - 6);
+        }
+
+        // ==================== 主更新函数 ====================
+        function update() {
+            const Ud = parseFloat(slUd.value);
+            const Uq = parseFloat(slUq.value);
+            const theta = parseFloat(slTheta.value);
+            let duty_set = parseFloat(slDutySet.value);
+
+            // 处理无效输入（NaN、空值等），回退到默认值 0.10
+            if (isNaN(duty_set)) duty_set = 0.10;
+
+            // 规整 duty_set 到 [0, 1]
+            const dutySetClamped = Math.min(1, Math.max(0, duty_set));
+
+            // 若输入框的值被修正，更新输入框显示
+            if (slDutySet.value !== String(dutySetClamped)) {
+                slDutySet.value = dutySetClamped;
+            }
+
+            valUd.textContent = Ud.toFixed(3);
+            valUq.textContent = Uq.toFixed(3);
+            valTheta.textContent = theta.toFixed(3);
+
+            const cosA = Math.cos(theta);
+            const sinA = Math.sin(theta);
+            const u_alpha = Ud * cosA - Uq * sinA;
+            const u_beta = Ud * sinA + Uq * cosA;
+
+            const { du, dv, dw } = svpwm(u_alpha, u_beta);
+
+            // --- 仅当 duty_set 改变时重新生成六边形灰白区域 ---
+            if (cachedDutySet !== dutySetClamped) {
+                const R = Math.min(cVec.width, cVec.height) * 0.42;
+                cachedHexRegion = generateHexRegion(
+                    cVec.width, cVec.height,
+                    cVec.width / 2, cVec.height / 2,
+                    R, dutySetClamped
+                );
+                cachedDutySet = dutySetClamped;
+            }
+
+            // --- 计算安全裕量 ---
+            const mag = Math.sqrt(u_alpha * u_alpha + u_beta * u_beta);
+            const safetyMargin = calcSafetyMargin(mag, dutySetClamped);
+            valSafety.textContent = safetyMargin.toFixed(1) + '%';
+
+            // --- 绘制 ---
+            drawHighSide(cHigh, ctxH, du, dv, dw);
+            drawLowSide(cLow, ctxL, du, dv, dw);
+            drawVectorHexagon(cVec, ctxVec, u_alpha, u_beta, theta);
+        }
+
+        // ==================== 事件绑定 ====================
+        slUd.addEventListener('input', update);
+        slUq.addEventListener('input', update);
+        slTheta.addEventListener('input', update);
+        slDutySet.addEventListener('input', update);
+        slDutySet.addEventListener('change', function() {
+            // 确保 duty_set 在合法范围
+            let val = parseFloat(slDutySet.value);
+            if (isNaN(val)) val = 0.1;
+            val = Math.min(1, Math.max(0, val));
+            slDutySet.value = val;
+            update();
+        });
+        window.addEventListener('resize', update);
+
+        // ==================== 初始化 ====================
+        update();
+    })();
+</script>
+</body>
+</html>
